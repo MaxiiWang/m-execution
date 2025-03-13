@@ -13,7 +13,7 @@ def write_to_iDOP(tenant_id, table, data:dict):
     
     headers = {
         'appId': app_id,
-        'tenantId': tenant_id,
+        'Tenant-Id': tenant_id,
     }
 
     filter_data = {k: v for k, v in data.items() if v is not None}
@@ -45,7 +45,7 @@ def read_from_iDOP(tenant_id, table, columns = None, condition=None, page_number
     
     headers = {
         'appId': app_id,
-        'tenantId': tenant_id,
+        'Tenant-Id': tenant_id,
     }
 
     filter = []
@@ -147,7 +147,7 @@ def update_iDOP(tenant_id, table, data: dict, condition):
     
     headers = {
         'appId': app_id,
-        'tenantId': tenant_id,
+        'Tenant-Id': tenant_id,
     }
     
     filter_conditions = [
@@ -185,7 +185,7 @@ def delete_from_iDOP(tenant_id, table, condition):
 
     headers = {
         'appId': app_id,
-        'tenantId': tenant_id,
+        'Tenant-Id': tenant_id,
     }
 
     url = Config.DFOps_SERVER_URL + "api/fabric/secondaryDikube/delete"
@@ -221,7 +221,7 @@ def get_schema(tenant_id):
     
     headers = {
         'appId': app_id,
-        'tenantId': tenant_id,
+        'Tenant-Id': tenant_id,
     }
     
     response = requests.get(url, headers=headers)
