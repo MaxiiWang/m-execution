@@ -1,3 +1,5 @@
+import httpx
+import json
 import requests
 
 from config import Config
@@ -5,15 +7,19 @@ from config import Config
 from common.utility.Global import G
 
 
-
-def write_to_iDOP(tenant_id, table, data:dict):
-    app_id = G.get_app_id()
+async def write_to_iDOP(tenant_id, token, table, data:dict):
+    if not token:
+        raise Exception("token is None")
     
-    url = Config.DFOps_SERVER_URL + "api/fabric/secondaryDikube/save"
+    app_id = G.get_app_id()
+    table = G.get_tag_by_name(table)
+    
+    url = Config.ids3_server_url + "api/fabric/secondaryDikube/save"
     
     headers = {
         'appId': app_id,
         'Tenant-Id': tenant_id,
+        'Authorization': token,
     }
 
     filter_data = {k: v for k, v in data.items() if v is not None}
@@ -21,12 +27,14 @@ def write_to_iDOP(tenant_id, table, data:dict):
     print("\n===============Adding data to iDOP=================")
     print("target: ", table)
     print("data: ", filter_data)
+
     payload = {
         "table": table,
         "data": filter_data
     }
 
-    response = requests.post(url, headers=headers, json=payload)
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, json=payload, timeout=10.0)
 
     print("response: ", response.text)
     print("===================================================")
@@ -38,14 +46,19 @@ def write_to_iDOP(tenant_id, table, data:dict):
             "error": response.text
         }
 
-def read_from_iDOP(tenant_id, table, columns = None, condition=None, page_number=None, page_size=None, order_by=None, desc=False):
+async def read_from_iDOP(tenant_id, token, table, columns = None, condition=None, page_number=None, page_size=None, order_by=None, desc=False):
+    if not token:
+        raise Exception("token is None")
+        
     app_id = G.get_app_id()
+    table = G.get_tag_by_name(table)
     
-    url = Config.DFOps_SERVER_URL + "api/fabric/secondaryDikube/search"
+    url = Config.ids3_server_url + "api/fabric/secondaryDikube/search"
     
     headers = {
         'appId': app_id,
         'Tenant-Id': tenant_id,
+        'Authorization': token,
     }
 
     filter = []
@@ -74,10 +87,10 @@ def read_from_iDOP(tenant_id, table, columns = None, condition=None, page_number
         data['filter'] = filter
 
     if order_by:
-        data['sorter'] = {
-            "field": order_by,
-            "order": "descend" if desc else "ascend"
-        }
+        data['order_by'] = [{
+            "column_name": order_by,
+            "type": "DESC" if desc else "ASC"
+        }]
 
     if columns:
         data['query'] = columns
@@ -93,7 +106,8 @@ def read_from_iDOP(tenant_id, table, columns = None, condition=None, page_number
     print("target: ", json.dumps(headers))
     print("data: ", json.dumps(data))
 
-    response = requests.post(url, headers=headers, json=data)
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, json=data, timeout=10.0)
 
     res_data = response.text
 
@@ -140,14 +154,19 @@ def read_from_iDOP(tenant_id, table, columns = None, condition=None, page_number
             "error": response.text if response.text else "未知错误，请联系管理员"
         }
     
-def update_iDOP(tenant_id, table, data: dict, condition):
-    app_id = G.get_app_id()
+async def update_iDOP(tenant_id, token, table, data: dict, condition):
+    if not token:
+        raise Exception("token is None")
     
-    url = Config.DFOps_SERVER_URL + "api/fabric/secondaryDikube/update"
+    app_id = G.get_app_id()
+    table = G.get_tag_by_name(table)
+    
+    url = Config.ids3_server_url + "api/fabric/secondaryDikube/update"
     
     headers = {
         'appId': app_id,
         'Tenant-Id': tenant_id,
+        'Authorization': token,
     }
     
     filter_conditions = [
@@ -157,18 +176,21 @@ def update_iDOP(tenant_id, table, data: dict, condition):
             "columnValue": v
         } for k, v in condition.items()
     ]
-    
+
+    new_data = {k: v for k, v in data.items() if v is not None}
+
     payload = {
         "table": table,
         "filter": filter_conditions,
-        "data": data
+        "data": new_data
     }
 
     print("\n===============Updating data in iDOP=================")
-    print("target: ", table)
-    print("data: ", data)
+    print("headers: ", headers)
+    print("payload: ", payload)
 
-    response = requests.put(url, headers=headers, json=payload)
+    async with httpx.AsyncClient() as client:
+        response = await client.put(url, headers=headers, json=payload)
 
     print("response: ", response.text)
     print("===================================================")
@@ -180,15 +202,20 @@ def update_iDOP(tenant_id, table, data: dict, condition):
             "error": response.text
         }
 
-def delete_from_iDOP(tenant_id, table, condition):
+async def delete_from_iDOP(tenant_id, token, table, condition):
+    if not token:
+        raise Exception("token is None")
+    
     app_id = G.get_app_id()
+    table = G.get_tag_by_name(table)
 
     headers = {
         'appId': app_id,
         'Tenant-Id': tenant_id,
+        'Authorization': token,
     }
 
-    url = Config.DFOps_SERVER_URL + "api/fabric/secondaryDikube/delete"
+    url = Config.ids3_server_url + "api/fabric/secondaryDikube/delete"
 
     filter_conditions = [
         {
@@ -214,17 +241,18 @@ def delete_from_iDOP(tenant_id, table, condition):
         }
 
 
-def get_schema(tenant_id):
+async def get_schema(tenant_id):
     app_id = G.get_app_id()
 
-    url = Config.DFOps_SERVER_URL + "api/fabric/secondaryDikube"
+    url = Config.ids3_server_url + "api/fabric/secondaryDikube"
     
     headers = {
         'appId': app_id,
         'Tenant-Id': tenant_id,
     }
     
-    response = requests.get(url, headers=headers)
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers)
 
     if response.status_code == 200:
         return response.json()

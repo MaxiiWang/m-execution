@@ -1,6 +1,6 @@
 # Global.py
+import pymysql
 import json
-import requests
 from config import Config
 from uuid import uuid4
 
@@ -10,8 +10,10 @@ class G:
 
     @classmethod
     def get_tag_by_name(cls, name):
-        print(cls._db_data)
-        return cls._db_data[name]
+        # if cls._db_data is None:
+        #     cls._db_data = cls._query_db()
+        cls._db_data = cls._query_db()
+        return name
     
     @classmethod
     def get_app_id(cls):
@@ -22,20 +24,31 @@ class G:
         return str(uuid4().hex)
 
     @staticmethod
-    def init():
-        url = Config.DFOps_SERVER_URL + "api/fabric/secondaryDikube"
-        tenant_id = Config.TENANT_ID
+    def _query_db():
+        mariaDB_connection = pymysql.connect(
+            host=Config.MYSQL_HOST,
+            port=Config.MYSQL_PORT,
+            user=Config.MYSQL_USER,
+            password=Config.MYSQL_PWD,
+            database="app",
+            cursorclass=pymysql.cursors.DictCursor  # 使用 DictCursor
+        )
+        cursor = mariaDB_connection.cursor()
         app_id = Config.APP_ID
+        cursor.execute("SELECT * FROM app_data_config WHERE app_id = %s ORDER BY order_index ASC", (app_id,))
+        result = cursor.fetchall()
+        cursor.close()
+        mariaDB_connection.close()
+        
+        config_str = ""
 
-        res = requests.get(url, headers={
-            "tenantId": tenant_id,
-            "appId": app_id
-        })
-
-        data = res.json()['data']
+        for item in result:
+            config_str += item['data_config']
+        data_config = json.loads(config_str)
 
         ret = {}
-        for item in data:
+        for item in data_config:
             ret[item['tableName']] = item['tag']
 
-        G._db_data = ret    
+        return ret
+    

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Header
 import uuid
 from datetime import datetime
 
@@ -7,21 +7,21 @@ from common.db.conn import conn
 router = APIRouter()
 
 @router.get("/steps")
-async def getSteps(tenant_id: str, task_id: str):
-    res = conn.methods['read']( tenant_id, "task", condition = {
+async def getSteps(tenant_id: str, task_id: str, token: str = Header(None)):
+    res = await conn.methods['read']( tenant_id, token, "task", condition = {
        "id": task_id
     })
 
     task = res['data'][0]
 
-    res = conn.methods['read']( tenant_id, "step", condition = {
+    res = await conn.methods['read']( tenant_id, token, "step", condition = {
         "node_id": task['node_id']
     })
     return res
 
 @router.post("/finish_once")
-async def finishOnce(tenant_id: str, user_id: str, user: str, task_id: str):
-    res = conn.methods['read']( tenant_id, "task", condition = {
+async def finishOnce(tenant_id: str, user_id: str, user: str, task_id: str, token: str = Header(None)):
+    res = await conn.methods['read']( tenant_id, token, "task", condition = {
         "id": task_id
     })
 
@@ -31,13 +31,13 @@ async def finishOnce(tenant_id: str, user_id: str, user: str, task_id: str):
     print("total: ", res['data'][0]['total'])
 
 
-    conn.methods['update']( tenant_id, "task", condition = {
+    await conn.methods['update']( tenant_id, token, "task", condition = {
         "id": task_id
     }, data = {
         "current": current + 1
     })
 
-    conn.methods['write']( tenant_id, "log", data = {
+    await conn.methods['write']( tenant_id, token, "log", data = {
         "id": str(uuid.uuid4().hex),
         "location": "execution",
         "user": user,
@@ -53,15 +53,15 @@ async def finishOnce(tenant_id: str, user_id: str, user: str, task_id: str):
     
     return res
 
-async def finish(tenant_id: str, user_id: str, user: str, task_id: str, node_id: str):
-
-    conn.methods['update']( tenant_id, "task", condition = {
+async def finish(tenant_id: str, user_id: str, user: str, task_id: str, node_id: str, token: str = Header(None)):
+    
+    await conn.methods['update']( tenant_id, token, "task", condition = {
         "id": task_id
     }, data = {
         "status": "finished"
     })
 
-    conn.methods['write']( tenant_id, "log", data = {
+    await conn.methods['write']( tenant_id, token, "log", data = {
         "id": str(uuid.uuid4().hex),
         "location": "execution",
         "user": user,
@@ -74,19 +74,19 @@ async def finish(tenant_id: str, user_id: str, user: str, task_id: str, node_id:
 
     key_name = get_current_key_name()
 
-    res = conn.methods['read']( tenant_id, "analysis", condition = {
+    res = await conn.methods['read']( tenant_id, "analysis", condition = {
         "date": get_today_date_string()
     })
 
     value = res['data'][0][key_name]
 
-    conn.methods['update']( tenant_id, "analysis", condition = {
+    await conn.methods['update']( tenant_id, token, "analysis", condition = {
         "date": get_today_date_string()
     }, data = {
         key_name: value + 1
     })
 
-    node = conn.methods['read']( tenant_id, "node", condition = {
+    node = await conn.methods['read']( tenant_id, token, "node", condition = {
         "id": node_id
     })['data'][0]
 
@@ -94,7 +94,7 @@ async def finish(tenant_id: str, user_id: str, user: str, task_id: str, node_id:
     b_if_need_after_check = node['b_need_after_check']
 
     if b_if_need_after_check:
-        conn.methods['write']( tenant_id, "examine", data = {
+        await conn.methods['write']( tenant_id, token, "examine", data = {
             "id": str(uuid.uuid4().hex),
             "task_id": task_id,
             "user_id": user_id,
@@ -105,8 +105,8 @@ async def finish(tenant_id: str, user_id: str, user: str, task_id: str, node_id:
     return res
 
 @router.post("/start")
-async def start(tenant_id: str, user_id: str, task_id: str):
-    res = conn.methods['read']( tenant_id, "task", condition = {
+async def start(tenant_id: str, user_id: str, task_id: str, token: str = Header(None)):
+    res = await conn.methods['read']( tenant_id, token, "task", condition = {
         "id": task_id
     })
 
@@ -117,13 +117,13 @@ async def start(tenant_id: str, user_id: str, task_id: str):
             "status": "running"
         }
         
-    conn.methods['update']( tenant_id, "task", condition = {
+    await conn.methods['update']( tenant_id, token, "task", condition = {
         "id": task_id
     }, data = {
         "actual_start_time": "TIMESTAMP " + datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     })
 
-    conn.methods['write']( tenant_id, "log", data = {
+    await conn.methods['write']( tenant_id, token, "log", data = {
         "id": str(uuid.uuid4().hex),
         "location": "task",
         "user": user_id,
@@ -137,66 +137,17 @@ async def start(tenant_id: str, user_id: str, task_id: str):
         "status": "running"
     }
 
-@router.get("/problem_types")
-async def getProblemTypes(tenant_id: str):
-    res = conn.methods['read']( tenant_id, "app_config", condition = {
-        "name": "problem_types"
-    })
-
-    res['data'] = res['data'][0]['value'][1:-1].split(',')
-    return res
-
-@router.post("/problem")
-async def reportProblem(tenant_id: str, data: dict):
-    print(data)
-    data['id'] = str(uuid.uuid4().hex)
-    data['created_at'] = "TIMESTAMP " + datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-    if "status" not in data:
-        data['status'] = "open"
-    conn.methods['write']( tenant_id, "problem", data = data)
-
-    log_data = {
-        "id": str(uuid.uuid4().hex),
-        "location": "execution",
-        "user": data['user'],
-        "user_id": data['user_id'],
-        "tag1": data['task_id'],
-        "tag2": "problem",
-        "tag3": data['id'],
-        "message": "上报生产问题：" + data['problem_type'],
-        "created_at": "TIMESTAMP " + datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    }
-
-    conn.methods['write']( tenant_id, "log", data = log_data)
-
-    res = conn.methods['read']( tenant_id, "analysis", condition = {
-        "date": get_today_date_string()
-    })
-
-    value = res['data'][0]['today_reported_problems']
-
-    conn.methods['update']( tenant_id, "analysis", condition = {
-        "date": get_today_date_string()
-    }, data = {
-        'today_reported_problems': value + 1
-    })
-
-    return {
-        "status": "reported"
-    }
-
 @router.get("/record_time")
-async def record_time(tenant_id, time):
+async def record_time(tenant_id, time, token: str = Header(None)):
     time = int(time)
     date = get_today_date_string()
-    res = conn.methods['read']( tenant_id, "analysis", condition = {
+    res = await conn.methods['read']( tenant_id, token, "analysis", condition = {
         "date": date
     })
 
     today_worktime = res['data'][0]['today_worktime']
 
-    conn.methods['update']( tenant_id, "analysis", condition = {
+    await conn.methods['update']( tenant_id, token, "analysis", condition = {
         "date": date
     }, data = {
         "today_worktime": today_worktime + time
