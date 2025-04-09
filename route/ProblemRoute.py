@@ -12,6 +12,28 @@ async def get_problem_type(tenant_id: str, token: str = Header(None)):
     
     return res
 
+@router.get("/")
+async def get_problem(tenant_id: str, token: str = Header(None), task_id: str = None, status: str = None):
+    if task_id:
+        if status:
+            res = await conn.methods['read'](tenant_id, token, "problem", condition = {
+                "task_id": task_id,
+                "status": status
+            })
+        else:
+            res = await conn.methods['read'](tenant_id, token, "problem", condition = {
+                "task_id": task_id,
+            })
+    else:
+        if status:
+            res = await conn.methods['read'](tenant_id, token, "problem", condition = {
+                "status": status
+            })
+        else:
+            res = await conn.methods['read'](tenant_id, token, "problem")
+    
+    return res
+
 @router.post("/")
 async def reportProblem(tenant_id: str, data: dict, token: str = Header(None)):
     print(data)

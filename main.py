@@ -7,6 +7,7 @@ from route.ExecutionRoute import router as exec_route
 from route.TaskRoute import router as task_route
 from route.ReferenceRoute import router as ref_route
 from route.ProblemRoute import router as problem_route
+from route.UserRoute import router as user_route
 
 app = FastAPI()
 
@@ -14,6 +15,7 @@ app.include_router(exec_route, tags=["exec_route"], prefix="/api/exec")
 app.include_router(task_route, tags=["task_route"], prefix="/api/task")
 app.include_router(ref_route, tags=["ref_route"], prefix="/api/ref")
 app.include_router(problem_route, tags=["problem_route"], prefix="/api/problem")
+app.include_router(user_route, tags=["user_route"], prefix="/api/user")
 
 app.add_middleware(
     CORSMiddleware,
