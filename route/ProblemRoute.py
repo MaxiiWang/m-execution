@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Body
 import uuid
 from datetime import datetime
 
@@ -19,18 +19,22 @@ async def get_problem(tenant_id: str, token: str = Header(None), task_id: str = 
             res = await conn.methods['read'](tenant_id, token, "problem", condition = {
                 "task_id": task_id,
                 "status": status
-            })
+            },
+            order_by = 'created_at', desc= True)
         else:
             res = await conn.methods['read'](tenant_id, token, "problem", condition = {
                 "task_id": task_id,
-            })
+            },
+            order_by = 'created_at', desc= True)
     else:
         if status:
             res = await conn.methods['read'](tenant_id, token, "problem", condition = {
                 "status": status
-            })
+            },
+            order_by = 'created_at', desc= True)
         else:
-            res = await conn.methods['read'](tenant_id, token, "problem")
+            res = await conn.methods['read'](tenant_id, token, "problem",
+            order_by = 'created_at', desc= True)
     
     return res
 
@@ -80,6 +84,23 @@ async def reportProblem(tenant_id: str, data: dict, token: str = Header(None)):
     return {
         "status": "reported"
     }
+
+@router.post("/resolve")
+async def resolve_problem(tenant_id: str, problem_id: str, task_id: str, user: str, user_id: str, data: dict, token: str = Header(None)):
+    data = {
+        "status": "resolved",
+        "resolved_user": user,
+        "resolved_user_id": user_id,
+        "resolved_at": "TIMESTAMP " + datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "resolved_description": data['resolved_description']
+    }
+    res = await conn.methods['update'](tenant_id, token, "problem", condition={"id": problem_id}, data=data)
+
+    res = await conn.methods['read'](tenant_id, token, "problem", condition={"id": problem_id, "status": "open"})
+
+    if len(res['data']) == 0:
+        res = await conn.methods['update'](tenant_id, token, "task", condition={"id": task_id}, data={"status": "open"})
+    return res
 
 def get_today_date_string():
     date_str = datetime.now().strftime("%Y-%m-%d")
