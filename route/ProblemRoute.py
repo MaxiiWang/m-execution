@@ -18,12 +18,14 @@ async def get_problem(tenant_id: str, token: str = Header(None), task_id: str = 
         if status:
             res = await conn.methods['read'](tenant_id, token, "problem", condition = {
                 "task_id": task_id,
-                "status": status
+                "status": status,
+                "if_block": True
             },
             order_by = 'created_at', desc= True)
         else:
             res = await conn.methods['read'](tenant_id, token, "problem", condition = {
                 "task_id": task_id,
+                "if_block": True
             },
             order_by = 'created_at', desc= True)
     else:
@@ -96,7 +98,7 @@ async def resolve_problem(tenant_id: str, problem_id: str, task_id: str, user: s
     }
     res = await conn.methods['update'](tenant_id, token, "problem", condition={"id": problem_id}, data=data)
 
-    res = await conn.methods['read'](tenant_id, token, "problem", condition={"id": problem_id, "status": "open"})
+    res = await conn.methods['read'](tenant_id, token, "problem", condition={"id": problem_id, "status": "open", "if_block": True})
 
     if len(res['data']) == 0:
         res = await conn.methods['update'](tenant_id, token, "task", condition={"id": task_id}, data={"status": "open"})
