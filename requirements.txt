@@ -3,3 +3,14 @@ pytz
 fastapi
 uvicorn
 pymysql
+
+pymongo
+requests
+httpx
+
+passlib[bcrypt]
+python-jose[cryptography]
+
+python-multipart
+
+apscheduler
