@@ -13,7 +13,14 @@ async def get_problem_type(tenant_id: str, token: str = Header(None)):
     return res
 
 @router.get("/")
-async def get_problem(tenant_id: str, token: str = Header(None), task_id: str = None, status: str = None):
+async def get_problem(tenant_id: str, token: str = Header(None), id:str = None, task_id: str = None, status: str = None):
+    print("id", id)
+    if id:
+        res = await conn.methods['read'](tenant_id, token, "problem", condition = {
+            "id": id,
+        })
+        return res
+    
     if task_id:
         if status:
             res = await conn.methods['read'](tenant_id, token, "problem", condition = {
@@ -40,11 +47,40 @@ async def get_problem(tenant_id: str, token: str = Header(None), task_id: str = 
     
     return res
 
+@router.get("/photo")
+async def get_problem_photo(tenant_id: str, token: str = Header(None), id:str = None, problem_id: str = None, status: str = None):
+    if id:
+        res = await conn.methods['read'](tenant_id, token, "file", condition = {
+            "id": id,
+        })
+        return res
+    
+    if problem_id:
+        if status:
+            res = await conn.methods['read'](tenant_id, token, "file", condition = {
+                "location": "problem",
+                "tag2": problem_id,
+                "tag1": status,
+            })
+            return res
+
+        else:
+            res = await conn.methods['read'](tenant_id, token, "file", condition = {
+                "location": "problem",
+                "tag2": problem_id,
+            })
+            return res
+
 @router.post("/")
 async def reportProblem(tenant_id: str, data: dict, token: str = Header(None)):
-    print(data)
-    data['id'] = str(uuid.uuid4().hex)
-    data['created_at'] = "TIMESTAMP " + datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    photo_data_list = data.get('photos', None)
+
+    data.pop('photos', None)
+
+    from pytz import timezone
+
+    tz = timezone('Asia/Shanghai')  # Replace 'Asia/Shanghai' with your desired timezone
+    data['created_at'] = "TIMESTAMP " + datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S')
 
     if "status" not in data:
         data['status'] = "open"
@@ -56,6 +92,11 @@ async def reportProblem(tenant_id: str, data: dict, token: str = Header(None)):
         }, data = {
             'status': 'blocked'
         })
+
+    if photo_data_list:
+        for photo_data in photo_data_list:
+            photo_data['id'] = str(uuid.uuid4().hex)
+            await conn.methods['write'](tenant_id, token, "file", data=photo_data)
 
     log_data = {
         "id": str(uuid.uuid4().hex),
@@ -75,13 +116,13 @@ async def reportProblem(tenant_id: str, data: dict, token: str = Header(None)):
         "date": get_today_date_string()
     })
 
-    value = res['data'][0]['today_reported_problems']
+    # value = res['data'][0]['today_reported_problems']
 
-    await conn.methods['update']( tenant_id, token, "analysis", condition = {
-        "date": get_today_date_string()
-    }, data = {
-        'today_reported_problems': value + 1
-    })
+    # await conn.methods['update']( tenant_id, token, "analysis", condition = {
+    #     "date": get_today_date_string()
+    # }, data = {
+    #     'today_reported_problems': value + 1
+    # })
 
     return {
         "status": "reported"
@@ -89,6 +130,8 @@ async def reportProblem(tenant_id: str, data: dict, token: str = Header(None)):
 
 @router.post("/resolve")
 async def resolve_problem(tenant_id: str, problem_id: str, task_id: str, user: str, user_id: str, data: dict, token: str = Header(None)):
+    photo_data_list = data.get('photos', None)
+    
     data = {
         "status": "resolved",
         "resolved_user": user,
@@ -102,6 +145,12 @@ async def resolve_problem(tenant_id: str, problem_id: str, task_id: str, user: s
 
     if len(res['data']) == 0:
         res = await conn.methods['update'](tenant_id, token, "task", condition={"id": task_id}, data={"status": "open"})
+    
+    if photo_data_list:
+        for photo_data in photo_data_list:
+            photo_data['id'] = str(uuid.uuid4().hex)
+            await conn.methods['write'](tenant_id, token, "file", data=photo_data)
+    
     return res
 
 def get_today_date_string():
