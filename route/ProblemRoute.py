@@ -13,7 +13,7 @@ async def get_problem_type(tenant_id: str, token: str = Header(None)):
     return res
 
 @router.get("/")
-async def get_problem(tenant_id: str, token: str = Header(None), id:str = None, task_id: str = None, status: str = None):
+async def get_problem(tenant_id: str, token: str = Header(None), id:str = None, task_id: str = None, status: str = None, user_id: str = None):
     print("id", id)
     if id:
         res = await conn.methods['read'](tenant_id, token, "problem", condition = {
@@ -37,13 +37,26 @@ async def get_problem(tenant_id: str, token: str = Header(None), id:str = None, 
             order_by = 'created_at', desc= True)
     else:
         if status:
-            res = await conn.methods['read'](tenant_id, token, "problem", condition = {
-                "status": status
-            },
-            order_by = 'created_at', desc= True)
+            if user_id:
+                res = await conn.methods['read'](tenant_id, token, "problem", condition = {
+                    "status": status,
+                    "user_id": user_id
+                },
+                order_by = 'created_at', desc= True)
+            else:
+                res = await conn.methods['read'](tenant_id, token, "problem", condition = {
+                    "status": status
+                },
+                order_by = 'created_at', desc= True)
         else:
-            res = await conn.methods['read'](tenant_id, token, "problem",
-            order_by = 'created_at', desc= True)
+            if user_id:
+                res = await conn.methods['read'](tenant_id, token, "problem", condition = {
+                    "user_id": user_id
+                },
+                order_by = 'created_at', desc= True)
+            else:
+                res = await conn.methods['read'](tenant_id, token, "problem",
+                order_by = 'created_at', desc= True)
     
     return res
 
@@ -152,6 +165,27 @@ async def resolve_problem(tenant_id: str, problem_id: str, task_id: str, user: s
             await conn.methods['write'](tenant_id, token, "file", data=photo_data)
     
     return res
+
+@router.get("/user")
+async def get_problem_user(tenant_id: str, status: str, token: str = Header(None)):
+    res = await conn.methods['read'](tenant_id, token, "problem", columns="distinct(user_id), user", condition = {
+        "status": status
+    })
+
+    ret = {
+        "data": [],
+    }
+
+    for key, value in res.items():
+        if key != 'data':
+            ret[key] = value
+
+    for item in res['data']:
+        if item['user_id']:
+            ret['data'].append(item)
+   
+    return ret
+
 
 def get_today_date_string():
     date_str = datetime.now().strftime("%Y-%m-%d")

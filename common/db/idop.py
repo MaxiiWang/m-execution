@@ -46,7 +46,7 @@ async def write_to_iDOP(tenant_id, token, table, data:dict):
             "error": response.text
         }
 
-async def read_from_iDOP(tenant_id, token, table, columns = None, condition=None, page_number=None, page_size=None, order_by=None, desc=False):
+async def read_from_iDOP(tenant_id, token, table, columns = None, condition=None, page_number=None, page_size=None, order_by=None, desc=False, complex_condition=None):
     if not token:
         raise Exception("token is None")
         
@@ -78,6 +78,9 @@ async def read_from_iDOP(tenant_id, token, table, columns = None, condition=None
                         "condition": "=",
                         "columnValue": value
                     })
+
+    if complex_condition:
+        filter = filter + complex_condition
     
     data = {
         "table": table
